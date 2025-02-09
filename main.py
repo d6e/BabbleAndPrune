@@ -61,9 +61,19 @@ def call_openai_api(prompt, temperature, max_tokens=1500):
     return full_response.strip()
 
 
-def babble_agent(prompt):
+def babble_agent(prompt, previous_evaluation=None):
     """Generate creative ideas (Babble agent) using high temperature."""
-    babble_prompt = f"You are Babble, a creative agent. Your purpose is to come up with innovative and imaginative ideas. Prompt: {prompt}"
+    if previous_evaluation:
+        babble_prompt = (
+            f"You are Babble, a creative agent. Your purpose is to come up with innovative and imaginative ideas.\n\n"
+            f"Previous attempt evaluation:\n{previous_evaluation}\n\n"
+            f"Using this feedback, generate a new and improved idea for the following prompt:\n{prompt}"
+        )
+    else:
+        babble_prompt = (
+            f"You are Babble, a creative agent. Your purpose is to come up with innovative and imaginative ideas.\n"
+            f"Prompt: {prompt}"
+        )
     return call_openai_api(babble_prompt, temperature=0.9)
 
 
@@ -156,21 +166,23 @@ def main():
     original_prompt = args.prompt if args.prompt else input("Enter your prompt: ")
     print("Original Prompt:", original_prompt)
 
-    target_score = 7.5  # Minimum acceptable overall score
+    target_score = 8.5  # Minimum acceptable overall score
     max_attempts = 5    # Maximum number of attempts to find a good idea
     best_response = None
     best_evaluation = None
     best_score = 0
 
+    previous_evaluation = None
     for attempt in range(max_attempts):
         print(f"\nAttempt {attempt + 1}/{max_attempts}")
         print("\nBabble Agent generating ideas...\n")
-        babble_response = babble_agent(original_prompt)
+        babble_response = babble_agent(original_prompt, previous_evaluation)
         print("Babble Agent Response:")
         print(babble_response)
 
         print("\nPrune Agent evaluating Babble's ideas...\n")
         evaluation = prune_agent(babble_response, original_prompt)
+        previous_evaluation = evaluation['explanation']  # Store explanation for next iteration
         
         print("Detailed Evaluation:")
         print(evaluation['explanation'])
