@@ -61,8 +61,8 @@ def call_openai_api(prompt, temperature, max_tokens=1500):
     return full_response.strip()
 
 
-def babble_agent(prompt, previous_evaluation=None):
-    """Generate creative ideas (Babble agent) using high temperature."""
+def babble_agent(prompt, previous_evaluation=None, context_text=None):
+    """Generate creative ideas (Babble agent) using high temperature, optionally using additional context."""
     if previous_evaluation:
         babble_prompt = (
             f"You are Babble, a creative agent. Your purpose is to come up with innovative and imaginative ideas.\n\n"
@@ -74,6 +74,8 @@ def babble_agent(prompt, previous_evaluation=None):
             f"You are Babble, a creative agent. Your purpose is to come up with innovative and imaginative ideas.\n"
             f"Prompt: {prompt}"
         )
+    if context_text:
+        babble_prompt += "\n\nAdditional context:\n" + context_text
     return call_openai_api(babble_prompt, temperature=0.9)
 
 
@@ -164,6 +166,7 @@ def create_error_response(error_msg):
 def main():
     parser = argparse.ArgumentParser(description='Generate and evaluate creative ideas using Babble and Prune agents.')
     parser.add_argument('prompt', nargs='?', help='The creative prompt to generate ideas for')
+    parser.add_argument('--context-file', type=str, help='Path to a file containing additional context for Babble prompt')
     args = parser.parse_args()
 
     original_prompt = args.prompt if args.prompt else input("Enter your prompt: ")
@@ -179,7 +182,14 @@ def main():
     for attempt in range(max_attempts):
         print(f"\nAttempt {attempt + 1}/{max_attempts}")
         print("\nBabble Agent generating ideas...\n")
-        babble_response = babble_agent(original_prompt, previous_evaluation)
+        context_text = None
+        if args.context_file:
+            try:
+                with open(args.context_file, "r", encoding="utf-8") as f:
+                    context_text = f.read()
+            except Exception as e:
+                print(f"Error reading context file: {e}")
+        babble_response = babble_agent(original_prompt, previous_evaluation, context_text)
         print("Babble Agent Response:")
         print(babble_response)
 
