@@ -1,6 +1,7 @@
 import os
 import requests
 import json
+import argparse
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -28,13 +29,36 @@ def call_openai_api(prompt, temperature, max_tokens=1500):
             {"role": "user", "content": prompt}
         ],
         "temperature": temperature,
-        "max_tokens": max_tokens
+        "max_tokens": max_tokens,
+        "stream": True
     }
-    response = requests.post(OPENAI_API_URL, json=data, headers=headers)
+
+    response = requests.post(OPENAI_API_URL, json=data, headers=headers, stream=True)
     if response.status_code != 200:
         raise Exception(f"OpenAI request failed with status code: {response.status_code}, {response.text}")
-    result = response.json()
-    return result["choices"][0]["message"]["content"].strip()
+
+    full_response = ""
+    for line in response.iter_lines():
+        if line:
+            # Remove 'data: ' prefix and skip empty lines
+            line = line.decode('utf-8')
+            if line.startswith('data: '):
+                line = line[6:]  # Remove 'data: ' prefix
+                if line == '[DONE]':
+                    break
+                try:
+                    json_object = json.loads(line)
+                    if len(json_object['choices']) > 0:
+                        delta = json_object['choices'][0].get('delta', {})
+                        if 'content' in delta:
+                            content = delta['content']
+                            print(content, end='', flush=True)
+                            full_response += content
+                except json.JSONDecodeError:
+                    continue
+
+    print()  # Add a newline at the end
+    return full_response.strip()
 
 
 def babble_agent(prompt):
@@ -60,6 +84,17 @@ def prune_agent(babble_response, original_prompt):
         "}"
     )
     response = call_openai_api(eval_prompt, temperature=0.2)
+
+    # Clean up the response by removing markdown code block formatting if present
+    response = response.strip()
+    if response.startswith("```"):
+        # Remove the first line if it contains ```json or just ```
+        response = response.split('\n', 1)[1]
+    if response.endswith("```"):
+        # Remove the last line containing ```
+        response = response.rsplit('\n', 1)[0]
+    response = response.strip()
+
     try:
         return json.loads(response)
     except json.JSONDecodeError:
@@ -74,7 +109,11 @@ def prune_agent(babble_response, original_prompt):
 
 
 def main():
-    original_prompt = input("Enter your prompt: ")
+    parser = argparse.ArgumentParser(description='Generate and evaluate creative ideas using Babble and Prune agents.')
+    parser.add_argument('prompt', nargs='?', help='The creative prompt to generate ideas for')
+    args = parser.parse_args()
+
+    original_prompt = args.prompt if args.prompt else input("Enter your prompt: ")
     print("Original Prompt:", original_prompt)
 
     target_score = 7.5  # Minimum acceptable overall score
