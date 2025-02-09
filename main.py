@@ -9,7 +9,7 @@ load_dotenv()
 
 # Retrieve environment variables with defaults
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "deepseek-ai/DeepSeek-V3")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "deepseek-ai/DeepSeek-R1")
 OPENAI_API_URL = os.getenv("OPENAI_API_URL", "https://api.hyperbolic.xyz/v1/chat/completions")
 
 if not OPENAI_API_KEY:
