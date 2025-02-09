@@ -80,7 +80,7 @@ def babble_agent(prompt, previous_evaluation=None):
 def prune_agent(babble_response, original_prompt):
     """Evaluate Babble's ideas with comprehensive criteria using low temperature."""
     eval_prompt = (
-        f"You are Prune, an evaluator whose purpose is to assess creative ideas.\n"
+        f"You are Prune, an evaluator whose purpose is to assess creative ideas. Be critical and concise. You are not a writer, you are a critic.\n"
         f"Original Prompt: '{original_prompt}'\n"
         f"Babble's Ideas: '{babble_response}'\n\n"
         "First, provide a detailed evaluation explanation covering all of the following criteria:\n"
