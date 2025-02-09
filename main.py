@@ -92,7 +92,8 @@ def prune_agent(babble_response, original_prompt):
         "6. Purpose - Does it fulfill a clear role or present interesting options?\n"
         "7. Uniqueness - How distinct is it from existing designs?\n"
         "8. Prompt Adherence - How well does it address the original prompt?\n"
-        "9. Consistency - Does the language, wording, naming, and text flow match Slay the Spire's style?\n\n"
+        "9. Consistency - Does the language, wording, naming, and text flow match Slay the Spire's style?\n"
+        "10. Impact - Cards should have measurable impact when played, especially commiserate with their energy cost. Strikes and Defends are starter cards, and cards of other rarities need to be measurably superior to them.\n\n"
         "After your explanation, provide numerical scores in the following JSON format:\n"
         "{\n"
         '    "feasibility_score": <1-10>,\n'
@@ -104,6 +105,7 @@ def prune_agent(babble_response, original_prompt):
         '    "uniqueness_score": <1-10>,\n'
         '    "adherence_score": <1-10>,\n'
         '    "consistency_score": <1-10>,\n'
+        '    "impact_score": <1-10>,\n'
         '    "overall_score": <average of all scores>\n'
         "}"
     )
@@ -153,6 +155,7 @@ def create_error_response(error_msg):
         "uniqueness_score": 0,
         "adherence_score": 0,
         "consistency_score": 0,
+        "impact_score": 0,
         "overall_score": 0,
         "explanation": error_msg
     }
@@ -197,6 +200,7 @@ def main():
         print(f"Uniqueness Score: {evaluation['uniqueness_score']}/10")
         print(f"Adherence Score: {evaluation['adherence_score']}/10")
         print(f"Consistency Score: {evaluation['consistency_score']}/10")
+        print(f"Impact Score: {evaluation['impact_score']}/10")
         print(f"Overall Score: {evaluation['overall_score']:.1f}/10")
 
         if evaluation['overall_score'] > best_score:
