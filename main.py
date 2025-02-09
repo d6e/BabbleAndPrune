@@ -68,44 +68,84 @@ def babble_agent(prompt):
 
 
 def prune_agent(babble_response, original_prompt):
-    """Evaluate Babble's ideas for feasibility, uniqueness, and prompt adherence (Prune agent) using low temperature."""
+    """Evaluate Babble's ideas with comprehensive criteria using low temperature."""
     eval_prompt = (
         f"You are Prune, an evaluator whose purpose is to assess creative ideas.\n"
         f"Original Prompt: '{original_prompt}'\n"
-        f"Babble's Ideas: '{babble_response}'\n"
-        "Evaluate the idea on three criteria (feasibility, uniqueness, and prompt adherence) on a scale of 1-10.\n"
-        "Provide your response in the following JSON format:\n"
+        f"Babble's Ideas: '{babble_response}'\n\n"
+        "First, provide a detailed evaluation explanation covering all of the following criteria:\n"
+        "1. Feasibility - Is it practically implementable?\n"
+        "2. Character Identity - Does it fit the character's color pie and thematic elements?\n"
+        "3. Design Elegance - Does it clearly and elegantly communicate its design goals?\n"
+        "4. Power Level - Is it balanced (neither over/underpowered)?\n"
+        "5. Novelty/Creativity - Does it present new ideas rather than redundant effects?\n"
+        "6. Purpose - Does it fulfill a clear role or present interesting options?\n"
+        "7. Uniqueness - How distinct is it from existing designs?\n"
+        "8. Prompt Adherence - How well does it address the original prompt?\n"
+        "9. Consistency - Does the language, wording, naming, and text flow match Slay the Spire's style?\n\n"
+        "After your explanation, provide numerical scores in the following JSON format:\n"
         "{\n"
         '    "feasibility_score": <1-10>,\n'
+        '    "character_identity_score": <1-10>,\n'
+        '    "design_elegance_score": <1-10>,\n'
+        '    "power_level_score": <1-10>,\n'
+        '    "novelty_score": <1-10>,\n'
+        '    "purpose_score": <1-10>,\n'
         '    "uniqueness_score": <1-10>,\n'
         '    "adherence_score": <1-10>,\n'
-        '    "overall_score": <average of the three scores>,\n'
-        '    "explanation": "<detailed evaluation explanation>"\n'
+        '    "consistency_score": <1-10>,\n'
+        '    "overall_score": <average of all scores>\n'
         "}"
     )
-    response = call_openai_api(eval_prompt, temperature=0.2)
+    response = call_openai_api(eval_prompt, temperature=0.2, max_tokens=3000)
 
-    # Clean up the response by removing markdown code block formatting if present
+    # Clean up any markdown formatting
     response = response.strip()
-    if response.startswith("```"):
-        # Remove the first line if it contains ```json or just ```
-        response = response.split('\n', 1)[1]
+    if response.startswith("```json"):
+        response = response[7:]
+    elif response.startswith("```"):
+        response = response[3:]
     if response.endswith("```"):
-        # Remove the last line containing ```
-        response = response.rsplit('\n', 1)[0]
+        response = response[:-3]
     response = response.strip()
+
+    # Split the response into explanation and JSON parts
+    parts = response.split('{\n')
+    if len(parts) != 2:
+        return create_error_response("Failed to parse evaluation. Raw response: " + response)
+
+    explanation = parts[0].strip()
+    json_str = '{' + parts[1].strip()
 
     try:
-        return json.loads(response)
+        scores = json.loads(json_str)
+        # Validate scores
+        for key in scores:
+            if key != 'overall_score' and key.endswith('_score'):
+                if not isinstance(scores[key], (int, float)) or scores[key] < 0 or scores[key] > 10:
+                    return create_error_response(f"Invalid score for {key}: {scores[key]}")
+        
+        scores['explanation'] = explanation
+        return scores
     except json.JSONDecodeError:
-        # Fallback in case the response isn't valid JSON
-        return {
-            "feasibility_score": 0,
-            "uniqueness_score": 0,
-            "adherence_score": 0,
-            "overall_score": 0,
-            "explanation": "Failed to parse evaluation. Raw response: " + response
-        }
+        return create_error_response("Failed to parse evaluation JSON. Raw response: " + response)
+
+
+def create_error_response(error_msg):
+    """Helper function to create error response with zero scores"""
+    return {
+        "feasibility_score": 0,
+        "character_identity_score": 0,
+        "design_elegance_score": 0,
+        "power_level_score": 0,
+        "novelty_score": 0,
+        "purpose_score": 0,
+        "uniqueness_score": 0,
+        "adherence_score": 0,
+        "consistency_score": 0,
+        "overall_score": 0,
+        "explanation": error_msg
+    }
 
 
 def main():
@@ -131,13 +171,21 @@ def main():
 
         print("\nPrune Agent evaluating Babble's ideas...\n")
         evaluation = prune_agent(babble_response, original_prompt)
-        print("Prune Agent Evaluation:")
+        
+        print("Detailed Evaluation:")
+        print(evaluation['explanation'])
+        
+        print("\nScores:")
         print(f"Feasibility Score: {evaluation['feasibility_score']}/10")
+        print(f"Character Identity Score: {evaluation['character_identity_score']}/10")
+        print(f"Design Elegance Score: {evaluation['design_elegance_score']}/10")
+        print(f"Power Level Score: {evaluation['power_level_score']}/10")
+        print(f"Novelty Score: {evaluation['novelty_score']}/10")
+        print(f"Purpose Score: {evaluation['purpose_score']}/10")
         print(f"Uniqueness Score: {evaluation['uniqueness_score']}/10")
         print(f"Adherence Score: {evaluation['adherence_score']}/10")
+        print(f"Consistency Score: {evaluation['consistency_score']}/10")
         print(f"Overall Score: {evaluation['overall_score']:.1f}/10")
-        print("\nDetailed Evaluation:")
-        print(evaluation['explanation'])
 
         if evaluation['overall_score'] > best_score:
             best_score = evaluation['overall_score']
