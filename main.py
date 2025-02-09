@@ -1,30 +1,40 @@
 import os
 import requests
+import json
+from dotenv import load_dotenv
 
-# Retrieve the API key from the environment variable
+# Load environment variables from .env file
+load_dotenv()
+
+# Retrieve environment variables with defaults
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "deepseek-ai/DeepSeek-V3")
+OPENAI_API_URL = os.getenv("OPENAI_API_URL", "https://api.hyperbolic.xyz/v1/chat/completions")
+
 if not OPENAI_API_KEY:
-    raise Exception("Please set your OPENAI_API_KEY as an environment variable")
+    raise Exception("Please set your OPENAI_API_KEY in the .env file or as an environment variable")
 
 
-def call_openai_api(prompt, temperature, max_tokens=150):
+def call_openai_api(prompt, temperature, max_tokens=1500):
     """Make a request to OpenAI's API with the given parameters."""
-    url = "https://api.openai.com/v1/completions"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {OPENAI_API_KEY}"
     }
     data = {
-        "model": "text-davinci-003",
-        "prompt": prompt,
+        "model": OPENAI_MODEL,
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ],
         "temperature": temperature,
         "max_tokens": max_tokens
     }
-    response = requests.post(url, json=data, headers=headers)
+    response = requests.post(OPENAI_API_URL, json=data, headers=headers)
     if response.status_code != 200:
         raise Exception(f"OpenAI request failed with status code: {response.status_code}, {response.text}")
     result = response.json()
-    return result["choices"][0]["text"].strip()
+    return result["choices"][0]["message"]["content"].strip()
 
 
 def babble_agent(prompt):
@@ -39,24 +49,76 @@ def prune_agent(babble_response, original_prompt):
         f"You are Prune, an evaluator whose purpose is to assess creative ideas.\n"
         f"Original Prompt: '{original_prompt}'\n"
         f"Babble's Ideas: '{babble_response}'\n"
-        "Please provide a detailed evaluation focusing on the following aspects: feasibility, uniqueness, and adherence to the original prompt."
+        "Evaluate the idea on three criteria (feasibility, uniqueness, and prompt adherence) on a scale of 1-10.\n"
+        "Provide your response in the following JSON format:\n"
+        "{\n"
+        '    "feasibility_score": <1-10>,\n'
+        '    "uniqueness_score": <1-10>,\n'
+        '    "adherence_score": <1-10>,\n'
+        '    "overall_score": <average of the three scores>,\n'
+        '    "explanation": "<detailed evaluation explanation>"\n'
+        "}"
     )
-    return call_openai_api(eval_prompt, temperature=0.2)
+    response = call_openai_api(eval_prompt, temperature=0.2)
+    try:
+        return json.loads(response)
+    except json.JSONDecodeError:
+        # Fallback in case the response isn't valid JSON
+        return {
+            "feasibility_score": 0,
+            "uniqueness_score": 0,
+            "adherence_score": 0,
+            "overall_score": 0,
+            "explanation": "Failed to parse evaluation. Raw response: " + response
+        }
 
 
 def main():
-    original_prompt = "Suggest innovative solutions for a sustainable future."
+    original_prompt = input("Enter your prompt: ")
     print("Original Prompt:", original_prompt)
 
-    print("\nBabble Agent generating ideas...\n")
-    babble_response = babble_agent(original_prompt)
-    print("Babble Agent Response:")
-    print(babble_response)
+    target_score = 7.5  # Minimum acceptable overall score
+    max_attempts = 5    # Maximum number of attempts to find a good idea
+    best_response = None
+    best_evaluation = None
+    best_score = 0
 
-    print("\nPrune Agent evaluating Babble's ideas...\n")
-    prune_response = prune_agent(babble_response, original_prompt)
-    print("Prune Agent Evaluation:")
-    print(prune_response)
+    for attempt in range(max_attempts):
+        print(f"\nAttempt {attempt + 1}/{max_attempts}")
+        print("\nBabble Agent generating ideas...\n")
+        babble_response = babble_agent(original_prompt)
+        print("Babble Agent Response:")
+        print(babble_response)
+
+        print("\nPrune Agent evaluating Babble's ideas...\n")
+        evaluation = prune_agent(babble_response, original_prompt)
+        print("Prune Agent Evaluation:")
+        print(f"Feasibility Score: {evaluation['feasibility_score']}/10")
+        print(f"Uniqueness Score: {evaluation['uniqueness_score']}/10")
+        print(f"Adherence Score: {evaluation['adherence_score']}/10")
+        print(f"Overall Score: {evaluation['overall_score']:.1f}/10")
+        print("\nDetailed Evaluation:")
+        print(evaluation['explanation'])
+
+        if evaluation['overall_score'] > best_score:
+            best_score = evaluation['overall_score']
+            best_response = babble_response
+            best_evaluation = evaluation
+
+        if evaluation['overall_score'] >= target_score:
+            print(f"\nSuccess! Found a good idea with score {evaluation['overall_score']:.1f}")
+            break
+        else:
+            print(f"\nScore {evaluation['overall_score']:.1f} is below target {target_score}. Trying again...")
+
+    print("\n=== Final Results ===")
+    if best_response and best_evaluation:
+        print(f"Best idea found (score: {best_score:.1f}/10):")
+        print(best_response)
+        print("\nFinal Evaluation:")
+        print(best_evaluation['explanation'])
+    else:
+        print("No valid ideas were generated. Please try again with a different prompt.")
 
 
 if __name__ == "__main__":
