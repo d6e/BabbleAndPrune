@@ -169,7 +169,7 @@ def main():
     original_prompt = args.prompt if args.prompt else input("Enter your prompt: ")
     print("Original Prompt:", original_prompt)
 
-    target_score = 8.5  # Minimum acceptable overall score
+    target_score = 9  # Minimum acceptable overall score
     max_attempts = 5    # Maximum number of attempts to find a good idea
     best_response = None
     best_evaluation = None
