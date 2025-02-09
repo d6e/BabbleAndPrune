@@ -38,24 +38,27 @@ def call_openai_api(prompt, temperature, max_tokens=1500):
         raise Exception(f"OpenAI request failed with status code: {response.status_code}, {response.text}")
 
     full_response = ""
-    for line in response.iter_lines():
-        if line:
-            # Remove 'data: ' prefix and skip empty lines
-            line = line.decode('utf-8')
-            if line.startswith('data: '):
-                line = line[6:]  # Remove 'data: ' prefix
-                if line == '[DONE]':
-                    break
-                try:
-                    json_object = json.loads(line)
-                    if len(json_object['choices']) > 0:
-                        delta = json_object['choices'][0].get('delta', {})
-                        if 'content' in delta:
-                            content = delta['content']
-                            print(content, end='', flush=True)
-                            full_response += content
-                except json.JSONDecodeError:
-                    continue
+    try:
+        for line in response.iter_lines():
+            if line:
+                # Remove 'data: ' prefix and skip empty lines
+                line = line.decode('utf-8')
+                if line.startswith('data: '):
+                    line = line[6:]  # Remove 'data: ' prefix
+                    if line == '[DONE]':
+                        break
+                    try:
+                        json_object = json.loads(line)
+                        if len(json_object['choices']) > 0:
+                            delta = json_object['choices'][0].get('delta', {})
+                            if 'content' in delta:
+                                content = delta['content']
+                                print(content, end='', flush=True)
+                                full_response += content
+                    except json.JSONDecodeError:
+                        continue
+    except requests.exceptions.ChunkedEncodingError as e:
+        print("\nWarning: Incomplete streaming result due to chunk error:", e)
 
     print()  # Add a newline at the end
     return full_response.strip()
